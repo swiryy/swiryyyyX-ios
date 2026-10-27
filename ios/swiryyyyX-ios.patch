@@ -1,0 +1,1012 @@
+diff --git a/Swiftgram/SGSimpleSettings/BUILD b/Swiftgram/SGSimpleSettings/BUILD
+index cd8266c43a..7fec7b0e00 100644
+--- a/Swiftgram/SGSimpleSettings/BUILD
++++ b/Swiftgram/SGSimpleSettings/BUILD
+@@ -10,6 +10,7 @@ swift_library(
+         "-warnings-as-errors",
+     ],
+     deps = [
++        "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
+         "//Swiftgram/SGAppGroupIdentifier:SGAppGroupIdentifier",
+         "//Swiftgram/SGLogging:SGLogging",
+     ],
+diff --git a/Swiftgram/SGSimpleSettings/Sources/SwirixHiddenChats.swift b/Swiftgram/SGSimpleSettings/Sources/SwirixHiddenChats.swift
+new file mode 100644
+index 0000000000..b81a4c9368
+--- /dev/null
++++ b/Swiftgram/SGSimpleSettings/Sources/SwirixHiddenChats.swift
+@@ -0,0 +1,36 @@
++import Foundation
++
++public final class SwirixHiddenChats {
++    public static let shared = SwirixHiddenChats()
++    public static let changed = Notification.Name("swiryyyyX.hiddenChats.changed")
++    private let lock = NSLock()
++    private let defaults: UserDefaults
++    private var cache: [Int64: Set<Int64>] = [:]
++
++    public init(defaults: UserDefaults? = nil) {
++        self.defaults = defaults ?? UserDefaults(suiteName: APP_GROUP_IDENTIFIER) ?? .standard
++    }
++
++    private func key(_ account: Int64) -> String { return "swiryyyyX.hidden.v1.\(account)" }
++
++    public func ids(account: Int64, refresh: Bool = false) -> Set<Int64> {
++        self.lock.lock()
++        defer { self.lock.unlock() }
++        if !refresh, let value = self.cache[account] { return value }
++        let value = Set((self.defaults.stringArray(forKey: self.key(account)) ?? []).compactMap(Int64.init))
++        self.cache[account] = value
++        return value
++    }
++
++    public func setHidden(account: Int64, peer: Int64, hidden: Bool) {
++        guard peer != account else { return }
++        self.lock.lock()
++        var value = self.cache[account] ?? Set((self.defaults.stringArray(forKey: self.key(account)) ?? []).compactMap(Int64.init))
++        if hidden { value.insert(peer) } else { value.remove(peer) }
++        self.cache[account] = value
++        self.defaults.set(value.sorted().map(String.init), forKey: self.key(account))
++        self.lock.unlock()
++        NotificationCenter.default.post(name: Self.changed, object: nil)
++    }
++
++}
+diff --git a/Swiftgram/SGSimpleSettings/Sources/SwirixHiddenChatsSignal.swift b/Swiftgram/SGSimpleSettings/Sources/SwirixHiddenChatsSignal.swift
+new file mode 100644
+index 0000000000..54019d7f4a
+--- /dev/null
++++ b/Swiftgram/SGSimpleSettings/Sources/SwirixHiddenChatsSignal.swift
+@@ -0,0 +1,12 @@
++import Foundation
++import SwiftSignalKit
++
++public func swirixHiddenChatsChanged() -> Signal<Void, NoError> {
++    return Signal { subscriber in
++        let observer = NotificationCenter.default.addObserver(forName: SwirixHiddenChats.changed, object: nil, queue: nil) { _ in
++            subscriber.putNext(())
++        }
++        subscriber.putNext(())
++        return ActionDisposable { NotificationCenter.default.removeObserver(observer) }
++    }
++}
+diff --git a/Telegram/BUILD b/Telegram/BUILD
+index ea3559dd7b..edbe98b989 100644
+--- a/Telegram/BUILD
++++ b/Telegram/BUILD
+@@ -649,7 +649,7 @@ plist_fragment(
+     template =
+     """
+     <key>CFBundleDisplayName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     """
+ )
+ 
+@@ -990,7 +990,7 @@ plist_fragment(
+     <key>CFBundleIdentifier</key>
+     <string>{telegram_bundle_id}.Share</string>
+     <key>CFBundleName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundlePackageType</key>
+     <string>XPC!</string>
+     <key>NSExtension</key>
+@@ -1082,7 +1082,7 @@ plist_fragment(
+     <key>CFBundleIdentifier</key>
+     <string>{telegram_bundle_id}.NotificationContent</string>
+     <key>CFBundleName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundlePackageType</key>
+     <string>XPC!</string>
+     <key>NSExtension</key>
+@@ -1189,7 +1189,7 @@ plist_fragment(
+     <key>CFBundleIdentifier</key>
+     <string>{telegram_bundle_id}.Widget</string>
+     <key>CFBundleName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundlePackageType</key>
+     <string>XPC!</string>
+     <key>NSExtension</key>
+@@ -1302,7 +1302,7 @@ plist_fragment(
+     <key>CFBundleIdentifier</key>
+     <string>{telegram_bundle_id}.SiriIntents</string>
+     <key>CFBundleName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundlePackageType</key>
+     <string>XPC!</string>
+     <key>NSExtension</key>
+@@ -1435,7 +1435,7 @@ plist_fragment(
+     <key>CFBundleIdentifier</key>
+     <string>{telegram_bundle_id}.SGActionRequestHandler</string>
+     <key>CFBundleName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundleDisplayName</key>
+     <string>Open in Swiftgram</string>
+     <key>CFBundlePackageType</key>
+@@ -1574,7 +1574,7 @@ plist_fragment(
+     <key>CFBundleIdentifier</key>
+     <string>{telegram_bundle_id}.BroadcastUpload</string>
+     <key>CFBundleName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundlePackageType</key>
+     <string>XPC!</string>
+     <key>NSExtension</key>
+@@ -1668,7 +1668,7 @@ plist_fragment(
+     <key>CFBundleIdentifier</key>
+     <string>{telegram_bundle_id}.NotificationService</string>
+     <key>CFBundleName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundlePackageType</key>
+     <string>XPC!</string>
+     <key>NSExtension</key>
+@@ -1737,11 +1737,11 @@ plist_fragment(
+     <key>CFBundleDevelopmentRegion</key>
+     <string>en</string>
+     <key>CFBundleDisplayName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundleIdentifier</key>
+     <string>{telegram_bundle_id}</string>
+     <key>CFBundleName</key>
+-    <string>Swiftgram</string>
++    <string>swiryyyyX</string>
+     <key>CFBundlePackageType</key>
+     <string>APPL</string>
+     <key>CFBundleSignature</key>
+diff --git a/Telegram/NotificationService/BUILD b/Telegram/NotificationService/BUILD
+index fa2ec92f8b..cc74a8700b 100644
+--- a/Telegram/NotificationService/BUILD
++++ b/Telegram/NotificationService/BUILD
+@@ -1,6 +1,7 @@
+ load("@build_bazel_rules_swift//swift:swift.bzl", "swift_library")
+ 
+ sgdeps = [
++    "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+     "//Swiftgram/SGAppGroupIdentifier:SGAppGroupIdentifier"
+ ]
+ 
+diff --git a/Telegram/NotificationService/Sources/NotificationService.swift b/Telegram/NotificationService/Sources/NotificationService.swift
+index b086c78cfb..aa1d3c5a34 100644
+--- a/Telegram/NotificationService/Sources/NotificationService.swift
++++ b/Telegram/NotificationService/Sources/NotificationService.swift
+@@ -1,4 +1,5 @@
+ import SGAppGroupIdentifier
++import SGSimpleSettings
+ import Foundation
+ import UserNotifications
+ import SwiftSignalKit
+@@ -1076,6 +1077,11 @@ private final class NotificationServiceHandler {
+                         }
+                     }
+                     
++                    if let peerId, SwirixHiddenChats.shared.ids(account: accountPeerId.toInt64(), refresh: true).contains(peerId.toInt64()) {
++                        updateCurrentContent(NotificationContent(sgStatus: sgStatus, isLockedMessage: nil, isEmpty: true))
++                        completed()
++                        return
++                    }
+                     #if DEBUG
+                     if let locKey = payloadJson["loc-key"] as? String, locKey == "CONF_CALL_REQUEST" {
+                     }
+diff --git a/Tests/SwirixHiddenChatsTests.swift b/Tests/SwirixHiddenChatsTests.swift
+new file mode 100644
+index 0000000000..753ca3bb22
+--- /dev/null
++++ b/Tests/SwirixHiddenChatsTests.swift
+@@ -0,0 +1,30 @@
++import Foundation
++
++let APP_GROUP_IDENTIFIER = "swirix.tests.unused.default"
++
++@main
++enum SwirixHiddenChatsTests {
++    static func main() {
++        let suite = "swirix.hidden.tests.\(UUID().uuidString)"
++        let defaults = UserDefaults(suiteName: suite)!
++        defer { defaults.removePersistentDomain(forName: suite) }
++        let store = SwirixHiddenChats(defaults: defaults)
++        store.setHidden(account: 100, peer: 200, hidden: true)
++        precondition(store.ids(account: 100) == [200], "Hide must persist for this account")
++        precondition(store.ids(account: 101).isEmpty, "A second account must remain isolated")
++        store.setHidden(account: 100, peer: 100, hidden: true)
++        precondition(store.ids(account: 100) == [200], "Saved Messages must remain reachable")
++        let reopened = SwirixHiddenChats(defaults: defaults)
++        precondition(reopened.ids(account: 100) == [200], "Hidden peers must survive restart")
++        store.setHidden(account: 100, peer: 200, hidden: false)
++        precondition(reopened.ids(account: 100, refresh: true).isEmpty, "Extension refresh must see restoration")
++        DispatchQueue.concurrentPerform(iterations: 230) { index in
++            store.setHidden(account: 100, peer: Int64(index + 1000), hidden: true)
++        }
++        precondition(store.ids(account: 100).count == 230, "Concurrent mutations must not lose peers")
++        precondition(reopened.ids(account: 100, refresh: true).count == 230, "All mutations must be persisted")
++        defaults.set(["invalid", "9007199254740993"], forKey: "swiryyyyX.hidden.v1.101")
++        precondition(store.ids(account: 101, refresh: true) == [9007199254740993], "Peer IDs must retain Int64 precision")
++        print("PASS: account isolation, self protection, persistence, extension refresh, concurrent 230 peers, Int64 precision")
++    }
++}
+diff --git a/submodules/ChatListUI/Sources/ChatContextMenus.swift b/submodules/ChatListUI/Sources/ChatContextMenus.swift
+index 50025717a7..d4a0f2df70 100644
+--- a/submodules/ChatListUI/Sources/ChatContextMenus.swift
++++ b/submodules/ChatListUI/Sources/ChatContextMenus.swift
+@@ -1,4 +1,6 @@
+ import Foundation
++import LocalAuthentication
++import SGSimpleSettings
+ import UIKit
+ import SwiftSignalKit
+ import ContextUI
+@@ -178,6 +180,37 @@ func chatContextMenuItems(context: AccountContext, peerId: EnginePeer.Id, promoI
+                     } else if case .search(.popularApps) = source {
+                     } else {
+                         let isSavedMessages = peerId == context.account.peerId
++                        let swirixAccount = context.account.peerId.toInt64()
++                        if !isSavedMessages {
++                            let hidden = SwirixHiddenChats.shared.ids(account: swirixAccount).contains(peerId.toInt64())
++                            items.append(.action(ContextMenuActionItem(text: hidden ? "swiryyyyX: повернути чат" : "swiryyyyX: приховати чат", icon: { _ in nil }, action: { _, dismiss in
++                                SwirixHiddenChats.shared.setHidden(account: swirixAccount, peer: peerId.toInt64(), hidden: !hidden)
++                                dismiss(.default)
++                            })))
++                        }
++                        if isSavedMessages {
++                            items.append(.action(ContextMenuActionItem(text: "swiryyyyX: зупинити пересилання", icon: { _ in nil }, action: { _, dismiss in
++                                NotificationCenter.default.post(name: Notification.Name("swiryyyyX.forward.stop"), object: NSNumber(value: swirixAccount))
++                                dismiss(.default)
++                            })))
++                        }
++                        if isSavedMessages && !SwirixHiddenChats.shared.ids(account: swirixAccount).isEmpty {
++                            items.append(.action(ContextMenuActionItem(text: "swiryyyyX: відкрити приховані чати", icon: { _ in nil }, action: { _, dismiss in
++                                let authentication = LAContext()
++                                authentication.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Відкрити приховані чати swiryyyyX") { success, _ in
++                                    guard success else { return }
++                                    DispatchQueue.main.async {
++                                        let ids = SwirixHiddenChats.shared.ids(account: swirixAccount)
++                                        let _ = (context.engine.data.get(EngineDataMap(ids.map { TelegramEngine.EngineData.Item.Peer.Peer(id: EnginePeer.Id($0)) })) |> deliverOnMainQueue).startStandalone(next: { peers in
++                                            if let navigation = chatListController?.navigationController as? NavigationController {
++                                                navigation.pushViewController(SwirixHiddenChatsController(context: context, peers: peers.values.compactMap { $0 }))
++                                            }
++                                        })
++                                    }
++                                }
++                                dismiss(.default)
++                            })))
++                        }
+                         
+                         if !isSavedMessages, case let .user(peer) = peer, !peer.flags.contains(.isSupport), peer.botInfo == nil && !peer.isDeleted {
+                             if !isContact {
+diff --git a/submodules/ChatListUI/Sources/ChatListSearchListPaneNode.swift b/submodules/ChatListUI/Sources/ChatListSearchListPaneNode.swift
+index f2acc54165..1879548654 100644
+--- a/submodules/ChatListUI/Sources/ChatListSearchListPaneNode.swift
++++ b/submodules/ChatListUI/Sources/ChatListSearchListPaneNode.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import SGSimpleSettings
+ import UIKit
+ import AsyncDisplayKit
+ import Display
+@@ -1420,7 +1421,10 @@ private struct ChatListSearchListPaneNodeState: Equatable {
+     var deletedGlobalMessageIds = Set<Int32>()
+ }
+ 
+-private func doesPeerMatchFilter(peer: EnginePeer, filter: ChatListNodePeersFilter) -> Bool {
++func doesPeerMatchFilter(peer: EnginePeer, filter: ChatListNodePeersFilter) -> Bool {
++    if filter.contains(.excludeSecretChats), case .secretChat = peer { return false }
++    if filter.contains(.excludeChannels), case let .channel(channel) = peer, case .broadcast = channel.info { return false }
++    if filter.contains(.excludeBots), case let .user(user) = peer, user.botInfo != nil { return false }
+     var enabled = true
+     if filter.contains(.onlyWriteable), !isIncludedCommunityContainer(peer, filter: filter) && !canSendMessagesToPeer(peer) {
+         enabled = false
+@@ -3829,7 +3833,7 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
+         })
+ 
+ 
+-        self.searchDisposable.set((foundItems |> mapToSignal { items -> Signal<([ChatListSearchEntry], Bool, String?)?, NoError> in
++        self.searchDisposable.set((combineLatest(foundItems, swirixHiddenChatsChanged()) |> map { items, _ in items } |> mapToSignal { items -> Signal<([ChatListSearchEntry], Bool, String?)?, NoError> in
+             guard let (items, isSearching, query) = items else {
+                 return .single(nil)
+             }
+@@ -3905,7 +3909,17 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
+                 let previousExpandGlobalSearch = previousExpandGlobalSearch.swap(strongSelf.searchStateValue.expandGlobalSearch)
+                 let previousAdsHidden = previousAdsHidden.swap(strongSelf.adsHidden)
+ 
+-                var entriesAndFlags = foundItems?.0
++                let hiddenIds = SwirixHiddenChats.shared.ids(account: context.account.peerId.toInt64())
++                var entriesAndFlags = foundItems?.0.filter { entry in
++                    if case let .topic(peer, _, _, _, _, _) = entry {
++                        return !hiddenIds.contains(peer.id.toInt64())
++                    }
++                    switch entry.stableId {
++                    case let .localPeerId(id), let .globalPeerId(id): return !hiddenIds.contains(id.toInt64())
++                    case let .messageId(id, _): return !hiddenIds.contains(id.peerId.toInt64())
++                    default: return true
++                    }
++                }
+ 
+                 let isSearching = foundItems?.1 ?? false
+                 let currentQuery = foundItems?.2
+@@ -4161,7 +4175,7 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
+ 
+             var entries: [ChatListRecentEntry] = []
+             if !peersFilter.contains(.onlyGroups) {
+-                if hasRecentPeers {
++                if hasRecentPeers && SwirixHiddenChats.shared.ids(account: context.account.peerId.toInt64()).isEmpty {
+                     entries.append(.topPeers([], presentationData.theme, presentationData.strings))
+                 }
+             }
+@@ -4169,7 +4183,7 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
+             var index = 0
+             loop: for searchedPeer in peers {
+                 if let peer = searchedPeer.peer.peers[searchedPeer.peer.peerId] {
+-                    if peerIds.contains(peer.id) {
++                    if peerIds.contains(peer.id) || SwirixHiddenChats.shared.ids(account: context.account.peerId.toInt64()).contains(peer.id.toInt64()) {
+                         continue loop
+                     }
+                     if !doesPeerMatchFilter(peer: EnginePeer(peer), filter: peersFilter) {
+@@ -4545,10 +4559,21 @@ final class ChatListSearchListPaneNode: ASDisplayNode, ChatListSearchPaneNode {
+ 
+         self.recentDisposable.set((combineLatest(queue: .mainQueue(),
+             presentationDataPromise.get(),
+-            recentItems
++            recentItems,
++            swirixHiddenChatsChanged()
+         )
+-        |> deliverOnMainQueue).startStrict(next: { [weak self] presentationData, recentItems in
++        |> deliverOnMainQueue).startStrict(next: { [weak self] presentationData, recentItems, _ in
+             if let strongSelf = self {
++                let hidden = SwirixHiddenChats.shared.ids(account: context.account.peerId.toInt64())
++                var recentItems = recentItems
++                recentItems.entries = recentItems.entries.filter { entry in
++                    switch entry.stableId {
++                    case .topPeers: return hidden.isEmpty
++                    case let .peerId(id, _): return !hidden.contains(id.toInt64())
++                    default: return true
++                    }
++                }
++                recentItems.recommendedChannelOrder.removeAll { hidden.contains($0.toInt64()) }
+                 let previousRecentItems = previousRecentItemsValue.swap(recentItems)
+ 
+                 var firstTime = previousRecentItems == nil
+diff --git a/submodules/ChatListUI/Sources/Node/ChatListNode.swift b/submodules/ChatListUI/Sources/Node/ChatListNode.swift
+index 96a933a081..e1d54aaa4e 100644
+--- a/submodules/ChatListUI/Sources/Node/ChatListNode.swift
++++ b/submodules/ChatListUI/Sources/Node/ChatListNode.swift
+@@ -3350,6 +3350,38 @@ public final class ChatListNode: ListViewImpl {
+         }
+     }
+     
++    public func swirixSelectFolder(completion: @escaping (String?) -> Void) {
++        let _ = (self.chatListLocation.get() |> take(1) |> deliverOnMainQueue).startStandalone(next: { [weak self] location in
++            guard let self, case let .peers(peerFilter, _, _, _, _, _, _) = self.mode else { return }
++            guard let currentFilter = location.filter, case .filter = currentFilter else { completion("Спочатку відкрий конкретну папку."); return }
++            let _ = (chatListViewForLocation(chatListLocation: self.location, location: .initial(count: 1001, filter: currentFilter), account: self.context.account, shouldLoadCanMessagePeer: true)
++            |> filter { !$0.list.isLoading }
++            |> take(1) |> deliverOnMainQueue).startStandalone(next: { [weak self] update in
++                guard let self else { return }
++                guard !update.list.hasEarlier && !update.list.hasLater && update.list.items.count <= 1000 else {
++                    completion("Папка завелика або ще не завантажена повністю. Нічого не вибрано.")
++                    return
++                }
++                let peers = update.list.items.compactMap { item -> EnginePeer? in
++                    guard !item.isPremiumRequiredToMessage, let peer = item.renderedPeer.peer, !peer.id.isRepliesOrVerificationCodes, peer.id.namespace != Namespaces.Peer.SecretChat, canSendMessagesToPeer(peer), doesPeerMatchFilter(peer: peer, filter: peerFilter) else { return nil }
++                    return peer
++                }
++                guard peers.count <= self.selectionLimit else {
++                    completion("Кількість чатів перевищує ліміт вибору. Нічого не вибрано.")
++                    return
++                }
++                self.updateState { state in
++                    var state = state
++                    state.selectedPeerIds = Set(peers.map { $0.id })
++                    state.selectedPeerMap = Dictionary(uniqueKeysWithValues: peers.map { ($0.id, $0) })
++                    return state
++                }
++                let skipped = update.list.items.count - peers.count
++                completion(skipped > 0 ? "Вибрано \(peers.count) чатів. Пропущено \(skipped) недоступних одержувачів." : nil)
++            })
++        })
++    }
++
+     public func updateState(_ f: (ChatListNodeState) -> ChatListNodeState) {
+         let state = f(self.currentState)
+         if state != self.currentState {
+diff --git a/submodules/ChatListUI/Sources/Node/ChatListNodeEntries.swift b/submodules/ChatListUI/Sources/Node/ChatListNodeEntries.swift
+index a7f3834a9f..b62cb451da 100644
+--- a/submodules/ChatListUI/Sources/Node/ChatListNodeEntries.swift
++++ b/submodules/ChatListUI/Sources/Node/ChatListNodeEntries.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import SGSimpleSettings
+ import UIKit
+ import TelegramCore
+ import TelegramPresentationData
+@@ -625,6 +626,7 @@ func chatListNodeEntriesForView(view: EngineChatList, state: ChatListNodeState,
+         }
+         
+         for contact in contacts {
++            if SwirixHiddenChats.shared.ids(account: accountPeerId.toInt64()).contains(contact.peer.id.toInt64()) { continue }
+             if existingPeerIds.contains(contact.peer.id) {
+                 continue
+             }
+diff --git a/submodules/ChatListUI/Sources/Node/ChatListNodeLocation.swift b/submodules/ChatListUI/Sources/Node/ChatListNodeLocation.swift
+index 5ab0a1d305..e8d157ca5c 100644
+--- a/submodules/ChatListUI/Sources/Node/ChatListNodeLocation.swift
++++ b/submodules/ChatListUI/Sources/Node/ChatListNodeLocation.swift
+@@ -1,4 +1,6 @@
+ import Foundation
++import UIKit
++import SGSimpleSettings
+ import Postbox
+ import TelegramCore
+ import SwiftSignalKit
+@@ -57,11 +59,15 @@ private func filteredCommunityChatListItems(_ items: [EngineChatList.Item]) -> [
+ }
+ 
+ private func chatListNodeViewUpdateWithCommunitySummaries(account: Account, update: ChatListNodeViewUpdate) -> Signal<ChatListNodeViewUpdate, NoError> {
+-    let baseItems = filteredCommunityChatListItems(update.list.items)
++    let hidden = SwirixHiddenChats.shared.ids(account: account.peerId.toInt64())
++    let baseItems = filteredCommunityChatListItems(update.list.items).filter { !hidden.contains($0.renderedPeer.peerId.toInt64()) }
++    let groups = update.list.groupItems.map { group in
++        return EngineChatList.GroupItem(id: group.id, topMessage: group.topMessage.flatMap { hidden.contains($0.id.peerId.toInt64()) ? nil : $0 }, items: group.items.filter { !hidden.contains($0.peer.peerId.toInt64()) }, unreadCount: hidden.isEmpty ? group.unreadCount : 0)
++    }
+     let baseList = EngineChatList(
+         items: baseItems,
+-        groupItems: update.list.groupItems,
+-        additionalItems: update.list.additionalItems,
++        groupItems: groups,
++        additionalItems: update.list.additionalItems.filter { !hidden.contains($0.item.renderedPeer.peerId.toInt64()) },
+         hasEarlier: update.list.hasEarlier,
+         hasLater: update.list.hasLater,
+         isLoading: update.list.isLoading
+@@ -127,7 +133,10 @@ public func chatListFilterPredicate(filter: ChatListFilterData, accountPeerId: E
+     if filter.excludeRead || filter.excludeMuted {
+         messageTagSummary = ChatListMessageTagSummaryResultCalculation(addCount: ChatListMessageTagSummaryResultComponent(tag: .unseenPersonalMessage, namespace: Namespaces.Message.Cloud), subtractCount: ChatListMessageTagActionsSummaryResultComponent(type: PendingMessageActionType.consumeUnseenPersonalMessage, namespace: Namespaces.Message.Cloud))
+     }
+-    return ChatListFilterPredicate(includePeerIds: includePeers, excludePeerIds: excludePeers, pinnedPeerIds: filter.includePeers.pinnedPeers, messageTagSummary: messageTagSummary, includeAdditionalPeerGroupIds: includeAdditionalPeerGroupIds, include: { peer, isMuted, isUnread, isContact, messageTagSummaryResult in
++    let hidden = Set(SwirixHiddenChats.shared.ids(account: accountPeerId.toInt64()).map { EnginePeer.Id($0) })
++    includePeers.subtract(hidden)
++    excludePeers.formUnion(hidden)
++    return ChatListFilterPredicate(includePeerIds: includePeers, excludePeerIds: excludePeers, pinnedPeerIds: filter.includePeers.pinnedPeers.filter { !hidden.contains($0) }, messageTagSummary: messageTagSummary, includeAdditionalPeerGroupIds: includeAdditionalPeerGroupIds, include: { peer, isMuted, isUnread, isContact, messageTagSummaryResult in
+         if filter.excludeRead {
+             var effectiveUnread = isUnread
+             if let messageTagSummaryResult = messageTagSummaryResult, messageTagSummaryResult {
+@@ -196,21 +205,37 @@ public func chatListFilterPredicate(filter: ChatListFilterData, accountPeerId: E
+ }
+ 
+ public func chatListViewForLocation(chatListLocation: ChatListControllerLocation, location: ChatListNodeLocation, account: Account, shouldLoadCanMessagePeer: Bool) -> Signal<ChatListNodeViewUpdate, NoError> {
++    return swirixHiddenChatsChanged()
++    |> map { _ in SwirixHiddenChats.shared.ids(account: account.peerId.toInt64()) }
++    |> distinctUntilChanged
++    |> mapToSignal { _ in
++        return swirixChatListViewForLocation(chatListLocation: chatListLocation, location: location, account: account, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
++    }
++}
++
++private func swirixChatListViewForLocation(chatListLocation: ChatListControllerLocation, location: ChatListNodeLocation, account: Account, shouldLoadCanMessagePeer: Bool) -> Signal<ChatListNodeViewUpdate, NoError> {
+     let accountPeerId = account.peerId
+     
+     switch chatListLocation {
+     case let .chatList(groupId):
+-        let filterPredicate: ChatListFilterPredicate?
++        var filterPredicate: ChatListFilterPredicate?
+         if let filter = location.filter, case let .filter(_, _, _, data) = filter {
+             filterPredicate = chatListFilterPredicate(filter: data, accountPeerId: account.peerId)
+         } else {
+             filterPredicate = nil
+         }
+         
++        let hidden = Set(SwirixHiddenChats.shared.ids(account: accountPeerId.toInt64()).map { EnginePeer.Id($0) })
++        if !hidden.isEmpty, var predicate = filterPredicate {
++            predicate.includePeerIds.subtract(hidden)
++            predicate.excludePeerIds.formUnion(hidden)
++            predicate.pinnedPeerIds.removeAll { hidden.contains($0) }
++            filterPredicate = predicate
++        }
+         switch location {
+         case let .initial(count, _):
+             let signal: Signal<(ChatListView, ViewUpdateType), NoError>
+-            signal = account.viewTracker.tailChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, count: count, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
++            signal = account.viewTracker.tailChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, count: count + (filterPredicate == nil ? hidden.count : 0), shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
+             return signal
+             |> map { view, updateType -> ChatListNodeViewUpdate in
+                 return ChatListNodeViewUpdate(list: EngineChatList(view, accountPeerId: accountPeerId), type: updateType, scrollPosition: nil)
+@@ -223,7 +248,7 @@ public func chatListViewForLocation(chatListLocation: ChatListControllerLocation
+                 return .never()
+             }
+             var first = true
+-            return account.viewTracker.aroundChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, index: index, count: 80, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
++            return account.viewTracker.aroundChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, index: index, count: 80 + (filterPredicate == nil ? hidden.count : 0), shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
+             |> map { view, updateType -> ChatListNodeViewUpdate in
+                 let genericType: ViewUpdateType
+                 if first {
+@@ -245,7 +270,7 @@ public func chatListViewForLocation(chatListLocation: ChatListControllerLocation
+             let directionHint: ListViewScrollToItemDirectionHint = sourceIndex > .chatList(index) ? .Down : .Up
+             let chatScrollPosition: ChatListNodeViewScrollPosition = .index(index: index, position: scrollPosition, directionHint: directionHint, animated: animated)
+             var first = true
+-            return account.viewTracker.aroundChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, index: index, count: 80, shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
++            return account.viewTracker.aroundChatListView(groupId: groupId._asGroup(), filterPredicate: filterPredicate, index: index, count: 80 + (filterPredicate == nil ? hidden.count : 0), shouldLoadCanMessagePeer: shouldLoadCanMessagePeer)
+             |> map { view, updateType -> ChatListNodeViewUpdate in
+                 let genericType: ViewUpdateType
+                 let scrollPosition: ChatListNodeViewScrollPosition? = first ? chatScrollPosition : nil
+diff --git a/submodules/ChatListUI/Sources/SwirixHiddenChatsController.swift b/submodules/ChatListUI/Sources/SwirixHiddenChatsController.swift
+new file mode 100644
+index 0000000000..37ac3299a0
+--- /dev/null
++++ b/submodules/ChatListUI/Sources/SwirixHiddenChatsController.swift
+@@ -0,0 +1,70 @@
++import Foundation
++import UIKit
++import Display
++import AccountContext
++import TelegramCore
++import TelegramPresentationData
++import SGSimpleSettings
++
++final class SwirixHiddenChatsController: ViewController, UITableViewDataSource, UITableViewDelegate {
++    private let context: AccountContext
++    private var peers: [EnginePeer]
++    private var backgroundObserver: NSObjectProtocol?
++    private let table = UITableView(frame: .zero, style: .plain)
++
++    init(context: AccountContext, peers: [EnginePeer]) {
++        self.context = context
++        self.peers = peers.sorted { $0.id.toInt64() < $1.id.toInt64() }
++        let data = context.sharedContext.currentPresentationData.with { $0 }
++        super.init(navigationBarPresentationData: NavigationBarPresentationData(presentationData: data))
++        self.title = "Приховані — натисни, щоб повернути"
++        self.table.dataSource = self
++        self.table.delegate = self
++        self.table.contentInsetAdjustmentBehavior = .never
++        self.table.backgroundColor = data.theme.list.plainBackgroundColor
++        self.backgroundObserver = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
++            self?.table.isHidden = true
++            self?.peers.removeAll()
++            self?.dismiss()
++        }
++    }
++
++    deinit {
++        if let observer = self.backgroundObserver { NotificationCenter.default.removeObserver(observer) }
++    }
++
++    required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
++
++    override func viewDidLoad() {
++        super.viewDidLoad()
++        self.table.frame = self.view.bounds
++        self.table.autoresizingMask = [.flexibleWidth, .flexibleHeight]
++        self.view.addSubview(self.table)
++    }
++
++    override func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {
++        super.containerLayoutUpdated(layout, transition: transition)
++        let navigationBarHeight = self.navigationLayout(layout: layout).navigationFrame.maxY
++        self.table.frame = CGRect(origin: .zero, size: layout.size)
++        self.table.contentInset = UIEdgeInsets(top: navigationBarHeight, left: layout.safeInsets.left, bottom: layout.intrinsicInsets.bottom, right: layout.safeInsets.right)
++        self.table.scrollIndicatorInsets = self.table.contentInset
++    }
++
++    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { return self.peers.count }
++
++    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
++        let cell = tableView.dequeueReusableCell(withIdentifier: "peer") ?? UITableViewCell(style: .default, reuseIdentifier: "peer")
++        let data = self.context.sharedContext.currentPresentationData.with { $0 }
++        cell.textLabel?.text = self.peers[indexPath.row].displayTitle(strings: data.strings, displayOrder: data.nameDisplayOrder)
++        cell.backgroundColor = data.theme.list.plainBackgroundColor
++        cell.textLabel?.textColor = data.theme.list.itemPrimaryTextColor
++        cell.accessoryType = .disclosureIndicator
++        return cell
++    }
++
++    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
++        let peer = self.peers.remove(at: indexPath.row)
++        SwirixHiddenChats.shared.setHidden(account: self.context.account.peerId.toInt64(), peer: peer.id.toInt64(), hidden: false)
++        tableView.deleteRows(at: [indexPath], with: .automatic)
++    }
++}
+diff --git a/submodules/ChatListUI/Sources/TabBarChatListFilterController.swift b/submodules/ChatListUI/Sources/TabBarChatListFilterController.swift
+index 1e3df440cf..e45a512872 100644
+--- a/submodules/ChatListUI/Sources/TabBarChatListFilterController.swift
++++ b/submodules/ChatListUI/Sources/TabBarChatListFilterController.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import SGSimpleSettings
+ import UIKit
+ import Display
+ import SwiftSignalKit
+@@ -9,9 +10,15 @@ import TelegramUIPreferences
+ import TelegramCore
+ 
+ public func chatListFilterItems(context: AccountContext) -> Signal<(Int, [(ChatListFilter, Int, Bool)]), NoError> {
+-    return context.engine.peers.updatedChatListFilters()
+-    |> distinctUntilChanged
+-    |> mapToSignal { filters -> Signal<(Int, [(ChatListFilter, Int, Bool)]), NoError> in
++    return combineLatest(context.engine.peers.updatedChatListFilters(), swirixHiddenChatsChanged())
++    |> mapToSignal { originalFilters, _ -> Signal<(Int, [(ChatListFilter, Int, Bool)]), NoError> in
++        let hidden = SwirixHiddenChats.shared.ids(account: context.account.peerId.toInt64()).map { EnginePeer.Id($0) }
++        let filters = originalFilters.map { filter -> ChatListFilter in
++            guard case let .filter(id, title, emoticon, originalData) = filter else { return filter }
++            var data = originalData
++            for peerId in hidden { _ = data.addExcludePeer(peerId: peerId) }
++            return .filter(id: id, title: title, emoticon: emoticon, data: data)
++        }
+         var unreadCountItems: [EngineRawUnreadMessageCountsItem] = []
+         unreadCountItems.append(.totalInGroup(.root))
+         var additionalPeerIds = Set<EnginePeer.Id>()
+@@ -235,7 +242,7 @@ public func chatListFilterItems(context: AccountContext) -> Signal<(Int, [(ChatL
+                         }
+                     }
+                 }
+-                result.append((filter, max(0, count), unmutedUnreadCount > 0))
++                result.append((originalFilters.first(where: { $0.id == filter.id }) ?? filter, max(0, count), unmutedUnreadCount > 0))
+             }
+             
+             return (totalBadge, result)
+diff --git a/submodules/TelegramUI/Components/PeerSelectionController/BUILD b/submodules/TelegramUI/Components/PeerSelectionController/BUILD
+index 1e2b43dc77..e73767ecdb 100644
+--- a/submodules/TelegramUI/Components/PeerSelectionController/BUILD
++++ b/submodules/TelegramUI/Components/PeerSelectionController/BUILD
+@@ -10,6 +10,8 @@ swift_library(
+         "-warnings-as-errors",
+     ],
+     deps = [
++        "//submodules/AlertUI",
++        "//submodules/PresentationDataUtils",
+         "//submodules/SSignalKit/SwiftSignalKit",
+         "//submodules/Display",
+         "//submodules/TelegramCore",
+diff --git a/submodules/TelegramUI/Components/PeerSelectionController/Sources/PeerSelectionController.swift b/submodules/TelegramUI/Components/PeerSelectionController/Sources/PeerSelectionController.swift
+index df6ac04903..fe13ed2a5a 100644
+--- a/submodules/TelegramUI/Components/PeerSelectionController/Sources/PeerSelectionController.swift
++++ b/submodules/TelegramUI/Components/PeerSelectionController/Sources/PeerSelectionController.swift
+@@ -1,4 +1,6 @@
+ import Foundation
++import AlertUI
++import PresentationDataUtils
+ import UIKit
+ import SwiftSignalKit
+ import Display
+@@ -471,8 +473,19 @@ public final class PeerSelectionControllerImpl: ViewController, PeerSelectionCon
+         }
+     }
+     
++    @objc private func swirixSelectFolder() {
++        self.peerSelectionNode.swirixSelectFolder { [weak self] error in
++            guard let self, let error else { return }
++            self.present(textAlertController(context: self.context, title: "swiryyyyX", text: error, actions: [TextAlertAction(type: .defaultAction, title: "OK", action: {})]), in: .window(.root))
++        }
++    }
++
+     @objc private func beginSelection() {
+-        self.navigationItem.rightBarButtonItem = nil
++        if !self.forwardedMessageIds.isEmpty && self.forwardedMessageIds.allSatisfy({ $0.peerId == self.context.account.peerId }) {
++            self.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Уся папка", style: .plain, target: self, action: #selector(self.swirixSelectFolder))
++        } else {
++            self.navigationItem.rightBarButtonItem = nil
++        }
+         self.peerSelectionNode.beginSelection()
+     }
+     
+diff --git a/submodules/TelegramUI/Components/PeerSelectionController/Sources/PeerSelectionControllerNode.swift b/submodules/TelegramUI/Components/PeerSelectionController/Sources/PeerSelectionControllerNode.swift
+index 409ca3984e..31eb55d170 100644
+--- a/submodules/TelegramUI/Components/PeerSelectionController/Sources/PeerSelectionControllerNode.swift
++++ b/submodules/TelegramUI/Components/PeerSelectionController/Sources/PeerSelectionControllerNode.swift
+@@ -924,6 +924,16 @@ final class PeerSelectionControllerNode: ASDisplayNode {
+         }
+     }
+ 
++    func swirixSelectFolder(completion: @escaping (String?) -> Void) {
++        if let mainContainerNode = self.mainContainerNode {
++            mainContainerNode.currentItemNode.swirixSelectFolder(completion: completion)
++        } else if let chatListNode = self.chatListNode {
++            chatListNode.swirixSelectFolder(completion: completion)
++        } else {
++            completion("Відкрий папку чатів.")
++        }
++    }
++
+     private var selectedPeers: ([EnginePeer], [EnginePeer.Id: EnginePeer]) {
+         if self.contactListActive {
+             let selectedContactPeers = self.contactListNode?.selectedPeers ?? []
+diff --git a/submodules/TelegramUI/Sources/ApplicationContext.swift b/submodules/TelegramUI/Sources/ApplicationContext.swift
+index 849cb5f8ea..d530ae8f00 100644
+--- a/submodules/TelegramUI/Sources/ApplicationContext.swift
++++ b/submodules/TelegramUI/Sources/ApplicationContext.swift
+@@ -312,6 +312,7 @@ final class AuthorizedApplicationContext {
+                     guard let message = item.0.first else {
+                         return false
+                     }
++                    if SwirixHiddenChats.shared.ids(account: context.account.peerId.toInt64()).contains(message.id.peerId.toInt64()) { return false }
+                     if let maybeChatListIndex = chatListIndexMap[message.id.peerId], maybeChatListIndex != nil {
+                         return true
+                     } else {
+diff --git a/submodules/TelegramUI/Sources/ChatControllerForwardMessages.swift b/submodules/TelegramUI/Sources/ChatControllerForwardMessages.swift
+index 406057b8bc..5acde8fe9c 100644
+--- a/submodules/TelegramUI/Sources/ChatControllerForwardMessages.swift
++++ b/submodules/TelegramUI/Sources/ChatControllerForwardMessages.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import SGSimpleSettings
+ import TelegramPresentationData
+ import AccountContext
+ import TelegramCore
+@@ -52,7 +53,7 @@ extension ChatControllerImpl {
+             var attemptSelectionImpl: ((EnginePeer, ChatListDisabledPeerReason) -> Void)?
+             let controller = self.context.sharedContext.makePeerSelectionController(PeerSelectionControllerParams(context: self.context, forceHideNames: forceHideNames, updatedPresentationData: self.updatedPresentationData, filter: filter, hasFilters: true, title: forceHideNames ? self.updatedPresentationData.0.strings.Conversation_ForwardOptions_HideSendersNames : nil, attemptSelection: { peer, _, reason in
+                 attemptSelectionImpl?(peer, reason)
+-            }, multipleSelection: true, forwardedMessageIds: messages.map { $0.id }, selectForumThreads: true))
++            }, multipleSelection: true, multipleSelectionLimit: messages.allSatisfy { $0.id.peerId == self.context.account.peerId } ? 1000 : nil, forwardedMessageIds: messages.map { $0.id }, selectForumThreads: true))
+             let context = self.context
+             attemptSelectionImpl = { [weak self, weak controller] peer, reason in
+                 guard let strongSelf = self, let controller = controller else {
+@@ -187,6 +188,36 @@ extension ChatControllerImpl {
+                                     return
+                                 }
+                                 
++                                if messages.allSatisfy({ $0.id.peerId == context.account.peerId }) && targetPeersShouldDivert.count > 1 {
++                                    let hidden = SwirixHiddenChats.shared.ids(account: context.account.peerId.toInt64())
++                                    let recipients = targetPeersShouldDivert.filter { !hidden.contains($0.0.id.toInt64()) }
++                                    guard !recipients.isEmpty else { return }
++                                    let hasScheduled = recipients.contains { $0.1 } || result.contains { $0.attributes.contains { $0 is OutgoingScheduleInfoMessageAttribute } }
++                                    let hasUnsupported = recipients.contains { $0.0.id.namespace == Namespaces.Peer.SecretChat }
++                                    let hasPaid = recipients.contains { entry in
++                                        if let value = sendPaidMessageStars[entry.0.id], value != nil { return true }
++                                        return false
++                                    }
++                                    guard !hasScheduled && !hasPaid && !hasUnsupported else {
++                                        strongSelf.present(textAlertController(context: context, title: "swiryyyyX", text: "Пакетне пересилання дозволено лише у безкоштовні звичайні чати без розкладу. Зміни список одержувачів.", actions: [TextAlertAction(type: .defaultAction, title: "OK", action: {})]), in: .window(.root))
++                                        return
++                                    }
++                                    let names = recipients.map { $0.0.displayTitle(strings: strongSelf.updatedPresentationData.0.strings, displayOrder: strongSelf.updatedPresentationData.0.nameDisplayOrder) }
++                                    let review = "Одержувачів: \(recipients.count). Повідомлень у кожний чат: \(messages.count).\n\n" + names.prefix(20).joined(separator: "\n") + (names.count > 20 ? "\n… та ще \(names.count - 20) вибраних чатів" : "")
++                                    strongSelf.present(textAlertController(context: context, title: "Підтвердити пересилання", text: review, actions: [
++                                        TextAlertAction(type: .genericAction, title: "Скасувати", action: {}),
++                                        TextAlertAction(type: .defaultAction, title: "Надіслати", action: { [weak strongSelf] in
++                                            let started = SwirixForwardQueue.start(context: context, recipients: recipients.map { $0.0.id }, messages: result, completion: { [weak strongSelf] text in
++                                                guard let strongSelf else { return }
++                                                strongSelf.present(textAlertController(context: context, title: "swiryyyyX", text: text, actions: [TextAlertAction(type: .defaultAction, title: "OK", action: {})]), in: .window(.root))
++                                            })
++                                            if !started, let strongSelf {
++                                                strongSelf.present(textAlertController(context: context, title: "swiryyyyX", text: "У цьому акаунті вже працює черга. Зупини її в меню Збереженого.", actions: [TextAlertAction(type: .defaultAction, title: "OK", action: {})]), in: .window(.root))
++                                            }
++                                        })
++                                    ]), in: .window(.root))
++                                    return
++                                }
+                                 var displayConvertingTooltip = false
+                                 
+                                 var displayPeers: [EnginePeer] = []
+diff --git a/submodules/TelegramUI/Sources/SwirixForwardQueue.swift b/submodules/TelegramUI/Sources/SwirixForwardQueue.swift
+new file mode 100644
+index 0000000000..4a0afbba07
+--- /dev/null
++++ b/submodules/TelegramUI/Sources/SwirixForwardQueue.swift
+@@ -0,0 +1,137 @@
++import Foundation
++import SwiftSignalKit
++import TelegramCore
++import AccountContext
++import SGSimpleSettings
++
++// Main-queue owned. Retained independently of the forwarding picker/controller.
++// A failed or uncertain recipient stops the job; it is never replayed on launch.
++final class SwirixForwardQueue {
++    private static var jobs: [Int64: SwirixForwardQueue] = [:]
++    private let context: AccountContext
++    private let recipients: [EnginePeer.Id]
++    private let messages: [EnqueueMessage]
++    private let disposable = MetaDisposable()
++    private var observer: NSObjectProtocol?
++    private let accountDisposable = MetaDisposable()
++    private var correlations: [Int64] = []
++    private var deliveryStartedAt: TimeInterval = 0
++    private var position = 0
++    private var cancelled = false
++    private let completion: (String) -> Void
++
++    static func isRunning(context: AccountContext) -> Bool {
++        return jobs[context.account.peerId.toInt64()] != nil
++    }
++
++    static func cancel(context: AccountContext) {
++        let key = context.account.peerId.toInt64()
++        guard let job = jobs.removeValue(forKey: key) else { return }
++        job.cancelled = true
++        job.disposable.dispose()
++        job.completion("Чергу зупинено. Уже відправлені повідомлення не відкликаються.")
++    }
++
++    static func start(context: AccountContext, recipients: [EnginePeer.Id], messages: [EnqueueMessage], completion: @escaping (String) -> Void) -> Bool {
++        let key = context.account.peerId.toInt64()
++        guard jobs[key] == nil, !messages.isEmpty, !recipients.isEmpty else { return false }
++        var seen = Set<EnginePeer.Id>()
++        let snapshot = recipients.filter { seen.insert($0).inserted }
++        let job = SwirixForwardQueue(context: context, recipients: snapshot, messages: messages, completion: completion)
++        jobs[key] = job
++        job.observer = NotificationCenter.default.addObserver(forName: Notification.Name("swiryyyyX.forward.stop"), object: nil, queue: .main) { [weak job] notification in
++            guard let job, let account = notification.object as? NSNumber, account.int64Value == key else { return }
++            Self.cancel(context: job.context)
++        }
++        job.accountDisposable.set((context.sharedContext.activeAccountsWithInfo |> deliverOnMainQueue).start(next: { [weak job] info in
++            guard let job, info.primary != context.account.id else { return }
++            Self.cancel(context: job.context)
++        }))
++        job.next()
++        return true
++    }
++
++    private init(context: AccountContext, recipients: [EnginePeer.Id], messages: [EnqueueMessage], completion: @escaping (String) -> Void) {
++        self.context = context
++        self.recipients = recipients
++        self.messages = messages
++        self.completion = completion
++    }
++
++    deinit {
++        if let observer = self.observer { NotificationCenter.default.removeObserver(observer) }
++        self.disposable.dispose()
++        self.accountDisposable.dispose()
++    }
++
++    private func finish(_ text: String) {
++        self.cancelled = true
++        Self.jobs.removeValue(forKey: self.context.account.peerId.toInt64())
++        self.disposable.set(nil)
++        self.completion(text)
++    }
++
++    private func next() {
++        guard !self.cancelled else { return }
++        guard self.position < self.recipients.count else {
++            self.finish("Пересилання завершено: \(self.position) чатів.")
++            return
++        }
++        let peerId = self.recipients[self.position]
++        if SwirixHiddenChats.shared.ids(account: self.context.account.peerId.toInt64()).contains(peerId.toInt64()) {
++            self.finish("Одержувач тепер прихований. Чергу зупинено без повторної відправки.")
++            return
++        }
++        self.correlations = self.messages.map { _ in Int64.random(in: 1 ... Int64.max) }
++        self.deliveryStartedAt = Date().timeIntervalSince1970
++        let outgoing = zip(self.messages, self.correlations).map { $0.0.withUpdatedCorrelationId($0.1) }
++        self.disposable.set((enqueueMessages(account: self.context.account, peerId: peerId, messages: outgoing)
++        |> deliverOnMainQueue).start(next: { [weak self] ids in
++            guard let self, !self.cancelled else { return }
++            let actual = ids.compactMap { $0 }
++            guard actual.count == self.messages.count else {
++                self.finish("Чергу зупинено: не вдалося підтвердити додавання повідомлень. Перевір чат перед повтором.")
++                return
++            }
++            // Deferring avoids replacing a MetaDisposable from a synchronous emission
++            // while its original subscription is still being installed.
++            Queue.mainQueue().async { [weak self] in
++                self?.waitForDelivery(ids: actual)
++            }
++        }))
++    }
++
++    private func waitForDelivery(ids: [EngineMessage.Id]) {
++        guard !self.cancelled else { return }
++        let statuses = ids.map { id in
++            return self.context.account.pendingMessageManager.pendingMessageStatus(id)
++            |> map { status, error -> Int in
++                if error != nil { return -1 }
++                return status == nil ? 1 : 0
++            }
++        }
++        self.disposable.set((combineLatest(statuses)
++        |> filter { values in values.contains(-1) }
++        |> take(1)
++        |> deliverOnMainQueue).start(next: { [weak self] _ in
++            self?.finish("Чергу зупинено через помилку доставки. Перевір поточний чат перед повторним запуском.")
++        }))
++        self.pollAcknowledgements()
++    }
++
++    private func pollAcknowledgements() {
++        guard !self.cancelled else { return }
++        let target = self.recipients[self.position]
++        let acknowledged = self.correlations.allSatisfy { correlation in
++            return self.context.account.pendingMessageManager.synchronouslyLookupCorrelationId(correlationId: correlation)?.peerId == target
++        }
++        if acknowledged {
++            self.position += 1
++            Queue.mainQueue().after(0.2) { [weak self] in self?.next() }
++        } else if Date().timeIntervalSince1970 - self.deliveryStartedAt > 300 {
++            self.finish("Немає підтвердження доставки протягом 5 хвилин. Чергу зупинено. Поточне повідомлення може ще відправитися через Telegram; перевір чат перед повтором.")
++        } else {
++            Queue.mainQueue().after(0.2) { [weak self] in self?.pollAcknowledgements() }
++        }
++    }
++}
+diff --git a/submodules/TelegramUIPreferences/BUILD b/submodules/TelegramUIPreferences/BUILD
+index e18637975c..6fca49ad8a 100644
+--- a/submodules/TelegramUIPreferences/BUILD
++++ b/submodules/TelegramUIPreferences/BUILD
+@@ -14,6 +14,7 @@ swift_library(
+         "-warnings-as-errors",
+     ],
+     deps = [
++        "//Swiftgram/SGSimpleSettings:SGSimpleSettings",
+         "//submodules/TelegramCore:TelegramCore",
+         "//submodules/Postbox:Postbox",
+         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
+diff --git a/submodules/TelegramUIPreferences/Sources/RenderedTotalUnreadCount.swift b/submodules/TelegramUIPreferences/Sources/RenderedTotalUnreadCount.swift
+index 233adf2e18..c88379246a 100644
+--- a/submodules/TelegramUIPreferences/Sources/RenderedTotalUnreadCount.swift
++++ b/submodules/TelegramUIPreferences/Sources/RenderedTotalUnreadCount.swift
+@@ -1,4 +1,5 @@
+ import Foundation
++import SGSimpleSettings
+ import TelegramCore
+ import SwiftSignalKit
+ 
+@@ -17,27 +18,43 @@ public func renderedTotalUnreadCount(inAppSettings: InAppNotificationSettings, t
+ }
+ 
+ public func renderedTotalUnreadCount(accountManager: AccountManager<TelegramAccountManagerTypes>, engine: TelegramEngine) -> Signal<(Int32, RenderedTotalUnreadCountType), NoError> {
+-    return combineLatest(
+-        accountManager.sharedData(keys: [ApplicationSpecificSharedDataKeys.inAppNotificationSettings]),
+-        engine.data.subscribe(
+-            TelegramEngine.EngineData.Item.Messages.TotalReadCounters()
+-        )
+-    )
+-    |> map { sharedData, totalReadCounters -> (Int32, RenderedTotalUnreadCountType) in
+-        let inAppSettings: InAppNotificationSettings
+-        if let value = sharedData.entries[ApplicationSpecificSharedDataKeys.inAppNotificationSettings]?.get(InAppNotificationSettings.self) {
+-            inAppSettings = value
+-        } else {
+-            inAppSettings = .defaultSettings
++    return combineLatest(accountManager.sharedData(keys: [ApplicationSpecificSharedDataKeys.inAppNotificationSettings]), swirixHiddenChatsChanged())
++    |> mapToSignal { sharedData, _ -> Signal<(Int32, RenderedTotalUnreadCountType), NoError> in
++        let settings = sharedData.entries[ApplicationSpecificSharedDataKeys.inAppNotificationSettings]?.get(InAppNotificationSettings.self) ?? .defaultSettings
++        let hidden = SwirixHiddenChats.shared.ids(account: engine.account.peerId.toInt64()).map { EnginePeer.Id($0) }
++        let unreadKey: EngineRawPostboxViewKey = .unreadCounts(items: [.total(nil)] + hidden.map { .peer(id: $0, handleThreads: true) })
++        let notificationsKey: EngineRawPostboxViewKey = .preferences(keys: Set([PreferencesKeys.globalNotifications]))
++        let keys = [unreadKey, notificationsKey] + hidden.map { EngineRawPostboxViewKey.basicPeer($0) }
++        return engine.account.postbox.combinedView(keys: keys)
++        |> map { view -> (Int32, RenderedTotalUnreadCountType) in
++            guard let counts = view.views[unreadKey] as? EngineRawUnreadMessageCountsView else { return (0, .filtered) }
++            let global = (view.views[notificationsKey] as? EngineRawPreferencesView)?.values[PreferencesKeys.globalNotifications]?.get(GlobalNotificationSettings.self)?.effective ?? GlobalNotificationSettings.defaultSettings.effective
++            var total: Int32 = 0
++            var deduction: Int32 = 0
++            for entry in counts.entries {
++                switch entry {
++                case let .total(_, state):
++                    total = state.count(for: settings.totalUnreadCountDisplayStyle.category, in: settings.totalUnreadCountDisplayCategory.statsType, with: settings.totalUnreadCountIncludeTags)
++                case let .peer(id, state):
++                    guard let state, state.isUnread, let peerView = view.views[.basicPeer(id)] as? EngineRawBasicPeerView, peerView.groupId == .root, let peer = peerView.peer else { continue }
++                    let tag = engine.account.postbox.seedConfiguration.peerSummaryCounterTags(peer, peerView.isContact)
++                    guard !settings.totalUnreadCountIncludeTags.intersection(tag).isEmpty else { continue }
++                    let defaultMuted: Bool
++                    if peer is TelegramUser || peer is TelegramSecretChat { defaultMuted = !global.privateChats.enabled }
++                    else if let channel = peer as? TelegramChannel, case .broadcast = channel.info { defaultMuted = !global.channels.enabled }
++                    else { defaultMuted = !global.groupChats.enabled }
++                    let muted = (peerView.notificationSettings as? TelegramPeerNotificationSettings)?.isRemovedFromTotalUnreadCount(default: defaultMuted) ?? defaultMuted
++                    if !muted {
++                        switch settings.totalUnreadCountDisplayCategory {
++                        case .chats: deduction += 1
++                        case .messages: deduction += state.count
++                        }
++                    }
++                default: break
++                }
++            }
++            return (max(0, total - deduction), .filtered)
+         }
+-        let type: RenderedTotalUnreadCountType
+-        switch inAppSettings.totalUnreadCountDisplayStyle {
+-            case .filtered:
+-                type = .filtered
+-        }
+-        return (totalReadCounters.count(for: inAppSettings.totalUnreadCountDisplayStyle.category, in: inAppSettings.totalUnreadCountDisplayCategory.statsType, with: inAppSettings.totalUnreadCountIncludeTags), type)
+     }
+-    |> distinctUntilChanged(isEqual: { lhs, rhs in
+-        return lhs == rhs
+-    })
++    |> distinctUntilChanged(isEqual: { $0 == $1 })
+ }
